@@ -12,9 +12,10 @@ export default function VideoItem({
         <video
             ref={videoRef}
             disablePictureInPicture
-            width={'320'}
-            height={'180'}
             style={{
+                width: '100%',
+                height: 'auto',
+                aspectRatio: '16 / 9',
                 border: '2px solid #333',
                 borderRadius: '0.5rem',
             }}
