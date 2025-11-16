@@ -23,6 +23,7 @@ export default function VideoItem({
                 const video = videoRef.current;
                 if (video == null || !video.paused) return;
                 video.play();
+                video.muted = true;
             }}
             onPointerLeave={() => {
                 const video = videoRef.current;
