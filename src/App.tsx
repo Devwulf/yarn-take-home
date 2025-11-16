@@ -8,7 +8,6 @@ import {lerp} from "./helpers.ts";
 const FULL_SCREEN_PADDING = 32; // 2rem
 const ASPECT_RATIO = 16 / 9;
 const DEFAULT_WIDTH = 320;
-const DEFAULT_HEIGHT = DEFAULT_WIDTH / ASPECT_RATIO;
 const GAP = 16; // 1rem
 
 function getVideoWidth(isHorizontal = false) {
@@ -21,8 +20,8 @@ function getCarouselLeft(index: number) {
 
 function App() {
     const videoRefs = useRef<Array<HTMLDivElement | null>>([]);
+    const videoRects = useRef<Array<DOMRect | null>>([]);
     const containerRef = useRef<HTMLDivElement | null>(null);
-    const clickedRect = useRef<DOMRect | null>(null);
     const isAnimating = useRef(false);
 
     const [clickedIndex, setClickedIndex] = useState<number | null>(null);
@@ -60,7 +59,10 @@ function App() {
             const clickedVideoDiv = videoRefs.current.at(clicked);
             if (videoDiv == null || clickedVideoDiv == null) return;
 
-            const clickedVideoRect = clickedRect.current ?? clickedVideoDiv.getBoundingClientRect();
+            const clickedRect = videoRects.current.at(clicked);
+            if (clickedRect == null) return;
+            
+            const clickedVideoRect = clickedRect ?? clickedVideoDiv.getBoundingClientRect();
             const indexOffset = index - clicked;
 
             const fromTheta = 0;
@@ -122,9 +124,12 @@ function App() {
         const isHorizontal = newClickedIndex != null;
         setClickedIndex(newClickedIndex);
 
-        const clickedRef = videoRefs.current.at(index);
-        if (clickedRef == null) return;
-        if (isHorizontal) clickedRect.current = clickedRef.getBoundingClientRect();
+        if (isHorizontal) {
+            videoRects.current = videoRefs.current.map(videoDiv => {
+                if (videoDiv == null) return null;
+                return videoDiv.getBoundingClientRect();
+            }).filter(rect => rect != null) as DOMRect[];
+        }
 
         const containerDiv = containerRef.current;
         if (containerDiv == null) return;
