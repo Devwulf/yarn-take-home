@@ -5,7 +5,7 @@ import {useRef, useState} from "react";
 import {animate, degreesToRadians, easeInOut} from "popmotion";
 import {lerp} from "./helpers.ts";
 
-const FULL_SCREEN_PADDING = 256; // 2rem
+const FULL_SCREEN_PADDING = 32; // 2rem
 const ASPECT_RATIO = 16 / 9;
 const DEFAULT_WIDTH = 320;
 const DEFAULT_HEIGHT = DEFAULT_WIDTH / ASPECT_RATIO;
@@ -15,10 +15,15 @@ function getVideoWidth(isHorizontal = false) {
     return isHorizontal ? window.innerWidth - FULL_SCREEN_PADDING * 2 : DEFAULT_WIDTH;
 }
 
+function getCarouselLeft(index: number) {
+    return `${-(getVideoWidth(true) + GAP) * index + FULL_SCREEN_PADDING}px`;
+}
+
 function App() {
     const videoRefs = useRef<Array<HTMLDivElement | null>>([]);
     const containerRef = useRef<HTMLDivElement | null>(null);
     const clickedRect = useRef<DOMRect | null>(null);
+    const isScrolling = useRef(false);
 
     const [clickedIndex, setClickedIndex] = useState<number | null>(null);
     const isHorizontal = clickedIndex != null;
@@ -115,7 +120,7 @@ function App() {
 
         const clickedRef = videoRefs.current.at(index);
         if (clickedRef == null) return;
-        if (newClickedIndex) clickedRect.current = clickedRef.getBoundingClientRect();
+        if (isHorizontal) clickedRect.current = clickedRef.getBoundingClientRect();
 
         const containerDiv = containerRef.current;
         if (containerDiv == null) return;
@@ -131,16 +136,41 @@ function App() {
 
         containerDiv.style.display = 'flex';
         containerDiv.style.flexDirection = isHorizontal ? 'row' : 'column';
+        containerDiv.style.left = isHorizontal ? getCarouselLeft(index) : '';
 
         VIDEOS.forEach((_, i) => {
             animateRotateVideoEnd(i, isHorizontal);
         });
     }
 
+    function handleScrollX(isScrollLeft = false) {
+        const containerDiv = containerRef.current;
+        if (containerDiv == null || isScrolling.current) return;
+
+        isScrolling.current = true;
+
+        const index = clickedIndex ?? 0;
+        const newIndex = isScrollLeft ? Math.max(0, index - 1) : Math.min(VIDEOS.length - 1, index + 1);
+        const fromLeft = getCarouselLeft(index);
+        const toLeft = getCarouselLeft(newIndex);
+        animate({
+            from: fromLeft,
+            to: toLeft,
+            duration: 500,
+            onUpdate(value) {
+                containerDiv.style.left = value;
+            },
+            onComplete() {
+                setClickedIndex(newIndex);
+                isScrolling.current = false;
+            }
+        });
+    }
 
     return (
         <div
             style={{
+                position: 'relative',
                 width: '100vw',
                 height: '100vh',
                 display: 'flex',
@@ -152,11 +182,17 @@ function App() {
             onWheel={(event) => {
                 if (!isHorizontal) return;
                 event.preventDefault();
+
+                const deltaY = event.deltaY;
+                if (event.shiftKey) {
+                    handleScrollX(deltaY < 0);
+                }
             }}
         >
             <div
                 ref={containerRef}
                 style={{
+                    position: 'absolute',
                     display: 'flex',
                     flexDirection: 'column',
                     width: 'fit-content',
