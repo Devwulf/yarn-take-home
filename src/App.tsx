@@ -5,7 +5,7 @@ import {useRef, useState} from "react";
 import {animate, degreesToRadians, easeInOut} from "popmotion";
 import {lerp} from "./helpers.ts";
 
-const FULL_SCREEN_PADDING = 32; // 2rem
+const FULL_SCREEN_PADDING = 256; // 2rem
 const ASPECT_RATIO = 16 / 9;
 const DEFAULT_WIDTH = 320;
 const DEFAULT_HEIGHT = DEFAULT_WIDTH / ASPECT_RATIO;
@@ -18,29 +18,10 @@ function getVideoWidth(isHorizontal = false) {
 function App() {
     const videoRefs = useRef<Array<HTMLDivElement | null>>([]);
     const containerRef = useRef<HTMLDivElement | null>(null);
+    const clickedRect = useRef<DOMRect | null>(null);
 
     const [clickedIndex, setClickedIndex] = useState<number | null>(null);
     const isHorizontal = clickedIndex != null;
-
-    function animateToFullScreen(index: number, isReverse = false) {
-        const videoDiv = videoRefs.current.at(index);
-        if (videoDiv == null) return;
-
-        return new Promise(resolve => {
-            const fromWidth = `${getVideoWidth()}px`;
-            const toWidth = `${getVideoWidth(true)}px`;
-            animate({
-                from: isReverse ? toWidth : fromWidth,
-                to: isReverse ? fromWidth : toWidth,
-                onUpdate(currValue) {
-                    videoDiv.style.width = currValue;
-                },
-                onComplete() {
-                    resolve();
-                }
-            });
-        })
-    }
 
     function animateRotateVideoStart(index: number) {
         const videoDiv = videoRefs.current.at(index);
@@ -63,30 +44,29 @@ function App() {
         videoDiv.style.top = '';
         videoDiv.style.left = '';
         videoDiv.style.width = `${getVideoWidth(isHorizontal)}px`;
-        videoDiv.style.height = 'auto';
+        videoDiv.style.height = `${getVideoWidth(isHorizontal) / ASPECT_RATIO}px}`;
     }
 
     // Need to integrate animateToFullScreen into this function, so that
     // width animation and position animation happen simultaneously
     function animateRotateVideo(index: number, clicked: number, isReverse = false) {
-        animateRotateVideoStart(index);
-        if (index === clicked) return animateToFullScreen(index, isReverse);
-
         return new Promise(resolve => {
             const videoDiv = videoRefs.current.at(index);
             const clickedVideoDiv = videoRefs.current.at(clicked);
             if (videoDiv == null || clickedVideoDiv == null) return;
 
-            const clickedVideoRect = clickedVideoDiv.getBoundingClientRect();
-
+            const clickedVideoRect = clickedRect.current ?? clickedVideoDiv.getBoundingClientRect();
             const indexOffset = index - clicked;
-            const ovalHalfWidth = (DEFAULT_WIDTH + GAP) * indexOffset;
-            const ovalHalfHeight = (DEFAULT_HEIGHT + GAP) * indexOffset;
 
             const fromTheta = 0;
             const toTheta = degreesToRadians(90);
             const fromWidth = getVideoWidth();
             const toWidth = getVideoWidth(true);
+
+            const fromCenterX = clickedVideoRect.left + clickedVideoRect.width / 2;
+            const fromCenterY = clickedVideoRect.top + clickedVideoRect.height / 2;
+            const toCenterX = window.innerWidth / 2;
+            const toCenterY = window.innerHeight / 2;
 
             animate({
                 from: 0,
@@ -94,18 +74,32 @@ function App() {
                 duration: 500 + Math.abs(indexOffset) * 50,
                 onUpdate(progress) {
                     const ease = easeInOut(progress);
-                    const theta = isReverse
-                        ? lerp(toTheta, fromTheta, ease)
-                        : lerp(fromTheta, toTheta, ease);
                     const width = isReverse
                         ? lerp(toWidth, fromWidth, ease)
                         : lerp(fromWidth, toWidth, ease);
+                    const height = width / ASPECT_RATIO;
+                    videoDiv.style.width = `${width}px`;
+                    videoDiv.style.height = `${height}px`;
+
+                    const centerX = isReverse
+                        ? lerp(toCenterX, fromCenterX, ease)
+                        : lerp(fromCenterX, toCenterX, ease);
+                    const centerY = isReverse
+                        ? lerp(toCenterY, fromCenterY, ease)
+                        : lerp(fromCenterY, toCenterY, ease);
+
+                    const theta = isReverse
+                        ? lerp(toTheta, fromTheta, ease)
+                        : lerp(fromTheta, toTheta, ease);
+
+                    const ovalHalfWidth = (width + GAP) * indexOffset;
+                    const ovalHalfHeight = (width / ASPECT_RATIO + GAP) * indexOffset;
 
                     const x = ovalHalfWidth * Math.sin(theta);
                     const y = ovalHalfHeight * Math.cos(theta);
-                    videoDiv.style.top = `${clickedVideoRect.top + y}px`;
-                    videoDiv.style.left = `${clickedVideoRect.left + x + (width - fromWidth) * indexOffset}px`;
-                    videoDiv.style.width = `${width}px`;
+
+                    videoDiv.style.top = `${y + centerY - height / 2}px`;
+                    videoDiv.style.left = `${x + centerX - width / 2}px`;
                 },
                 onComplete() {
                     resolve();
@@ -119,18 +113,31 @@ function App() {
         const isHorizontal = newClickedIndex != null;
         setClickedIndex(newClickedIndex);
 
+        const clickedRef = videoRefs.current.at(index);
+        if (clickedRef == null) return;
+        if (newClickedIndex) clickedRect.current = clickedRef.getBoundingClientRect();
+
         const containerDiv = containerRef.current;
         if (containerDiv == null) return;
-        containerDiv.style.display = 'flex';
-        containerDiv.style.flexDirection = isHorizontal ? 'row' : 'column';
+
+        VIDEOS.forEach((_, i) => {
+            animateRotateVideoStart(i);
+        })
+
+        containerDiv.style.display = 'block';
 
         const rotateActions = VIDEOS.map((_, i) => animateRotateVideo(i, index, newClickedIndex == null))
         await Promise.allSettled(rotateActions);
 
-        /*VIDEOS.forEach((_, i) => {
+        containerDiv.style.display = 'flex';
+        containerDiv.style.flexDirection = isHorizontal ? 'row' : 'column';
+
+        VIDEOS.forEach((_, i) => {
             animateRotateVideoEnd(i, isHorizontal);
-        });*/
+        });
     }
+
+
     return (
         <div
             style={{
@@ -141,6 +148,10 @@ function App() {
                 alignItems: 'center',
                 overflowY: isHorizontal ? 'hidden' : 'auto',
                 overflowX: 'hidden',
+            }}
+            onWheel={(event) => {
+                if (!isHorizontal) return;
+                event.preventDefault();
             }}
         >
             <div
@@ -158,8 +169,7 @@ function App() {
                         ref={el => videoRefs.current[index] = el}
                         style={{
                             width: `${getVideoWidth(isHorizontal)}px`,
-                            height: 'auto',
-                            aspectRatio: '16 / 9',
+                            height: `${getVideoWidth(isHorizontal) / ASPECT_RATIO}px`,
                             cursor: 'pointer',
                         }}
                         onClick={() => {
