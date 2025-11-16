@@ -216,10 +216,17 @@ function App() {
                             cursor: 'pointer',
                         }}
                         onClick={() => {
+                            if (isHorizontal) return;
                             handleClickVideo(index);
                         }}
                     >
-                        <VideoItem key={`${index}`} src={src}/>
+                        <VideoItem
+                            key={`${index}`}
+                            src={src}
+                            isHorizontal={isHorizontal}
+                            index={index}
+                            clickedIndex={clickedIndex}
+                        />
                     </div>
                 ))}
             </div>
