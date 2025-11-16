@@ -23,7 +23,7 @@ function App() {
     const videoRefs = useRef<Array<HTMLDivElement | null>>([]);
     const containerRef = useRef<HTMLDivElement | null>(null);
     const clickedRect = useRef<DOMRect | null>(null);
-    const isScrolling = useRef(false);
+    const isAnimating = useRef(false);
 
     const [clickedIndex, setClickedIndex] = useState<number | null>(null);
     const isHorizontal = clickedIndex != null;
@@ -114,6 +114,10 @@ function App() {
     }
 
     async function handleClickVideo(index: number) {
+        if (isAnimating.current) return;
+
+        isAnimating.current = true;
+
         const newClickedIndex = clickedIndex != null ? null : index;
         const isHorizontal = newClickedIndex != null;
         setClickedIndex(newClickedIndex);
@@ -141,13 +145,14 @@ function App() {
         VIDEOS.forEach((_, i) => {
             animateRotateVideoEnd(i, isHorizontal);
         });
+        isAnimating.current = false;
     }
 
     function handleScrollX(isScrollLeft = false) {
         const containerDiv = containerRef.current;
-        if (containerDiv == null || isScrolling.current) return;
+        if (containerDiv == null || isAnimating.current) return;
 
-        isScrolling.current = true;
+        isAnimating.current = true;
 
         const index = clickedIndex ?? 0;
         const newIndex = isScrollLeft ? Math.max(0, index - 1) : Math.min(VIDEOS.length - 1, index + 1);
@@ -162,7 +167,7 @@ function App() {
             },
             onComplete() {
                 setClickedIndex(newIndex);
-                isScrolling.current = false;
+                isAnimating.current = false;
             }
         });
     }
@@ -180,12 +185,14 @@ function App() {
                 overflowX: 'hidden',
             }}
             onWheel={(event) => {
-                if (!isHorizontal) return;
+                if (!isHorizontal || clickedIndex == null) return;
                 event.preventDefault();
 
                 const deltaY = event.deltaY;
                 if (event.shiftKey) {
                     handleScrollX(deltaY < 0);
+                } else {
+                    handleClickVideo(clickedIndex);
                 }
             }}
         >
