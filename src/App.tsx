@@ -9,6 +9,7 @@ const FULL_SCREEN_PADDING = 32; // 2rem
 const ASPECT_RATIO = 16 / 9;
 const DEFAULT_WIDTH = 320;
 const GAP = 16; // 1rem
+const DURATION = 500;
 
 function getVideoWidth(isHorizontal = false) {
     return isHorizontal ? window.innerWidth - FULL_SCREEN_PADDING * 2 : DEFAULT_WIDTH;
@@ -23,6 +24,10 @@ function App() {
     const videoRects = useRef<Array<DOMRect | null>>([]);
     const containerRef = useRef<HTMLDivElement | null>(null);
     const isAnimating = useRef(false);
+    const stopFns = useRef<(() => void)[]>([]);
+
+    const tempPrevProgress = useRef<number | null>(null);
+    const tempProgress = useRef<number | null>(null);
 
     const [clickedIndex, setClickedIndex] = useState<number | null>(null);
     const isHorizontal = clickedIndex != null;
@@ -75,15 +80,22 @@ function App() {
             const toCenterX = window.innerWidth / 2;
             const toCenterY = window.innerHeight / 2;
 
-            animate({
-                from: 0,
+            const {
+                stop
+            } = animate({
+                from: isReverse && tempPrevProgress.current != null ? 1 - tempPrevProgress.current : 0,
                 to: 1,
-                duration: 500 + Math.abs(indexOffset) * 50,
+                duration: DURATION + Math.abs(indexOffset) * 50,
                 onUpdate(progress) {
+                    if (!isReverse) {
+                        tempPrevProgress.current = tempProgress.current;
+                        tempProgress.current = progress;
+                    }
                     const ease = easeInOut(progress);
                     const width = isReverse
                         ? lerp(toWidth, fromWidth, ease)
                         : lerp(fromWidth, toWidth, ease);
+
                     const height = width / ASPECT_RATIO;
                     videoDiv.style.width = `${width}px`;
                     videoDiv.style.height = `${height}px`;
@@ -112,11 +124,19 @@ function App() {
                     resolve();
                 }
             });
+            stopFns.current.push(stop);
         });
     }
 
     async function handleClickVideo(index: number) {
-        if (isAnimating.current) return;
+        if (isAnimating.current) {
+            stopFns.current.forEach(stop => stop());
+            isAnimating.current = false;
+            setClickedIndex(null);
+
+            handleClickVideo(index);
+            return;
+        }
 
         isAnimating.current = true;
 
@@ -136,12 +156,16 @@ function App() {
 
         VIDEOS.forEach((_, i) => {
             animateRotateVideoStart(i);
-        })
+        });
 
         containerDiv.style.display = 'block';
 
         const rotateActions = VIDEOS.map((_, i) => animateRotateVideo(i, index, newClickedIndex == null))
         await Promise.allSettled(rotateActions);
+
+        stopFns.current = [];
+        tempPrevProgress.current = null;
+        tempProgress.current = null;
 
         containerDiv.style.display = 'flex';
         containerDiv.style.flexDirection = isHorizontal ? 'row' : 'column';
