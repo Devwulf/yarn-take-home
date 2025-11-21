@@ -23,7 +23,6 @@ export default function useRotateVideosAnim({
         if (videoDiv == null) return;
 
         const rect = videoDiv.getBoundingClientRect();
-        console.log('>RECT', index, rect);
 
         videoDiv.style.position = 'fixed';
         videoDiv.style.top = `${rect.top}px`;
@@ -164,9 +163,6 @@ export default function useRotateVideosAnim({
                     onUpdateVideo(index, videoDiv, progress);
                 });
             },
-            onComplete() {
-
-            }
         }
     }
 
@@ -208,6 +204,7 @@ export default function useRotateVideosAnim({
     }
 
     return {
+        animateRotateVideoEnd,
         rotateVideoAnimationBuilder,
         dragVideosAnimationBuilder,
         runRotateVideosAnimation
