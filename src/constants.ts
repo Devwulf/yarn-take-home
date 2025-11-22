@@ -38,4 +38,7 @@ export const VIDEO_STAGGER_DURATION_MS = 50;
 
 // Velocity threshold (in px/ms or the same units as your gesture’s delta/time calculation)
 // beyond which an upward swipe triggers an immediate reset to the default state.
-export const SWIPE_UP_VELOCITY_THRESHOLD = 30;
+export const SWIPE_UP_VELOCITY_THRESHOLD = 50;
+
+// Multiplier applied to event.deltaY to fine‑tune perceived scroll speed.
+export const SCROLL_DELTA_MULTIPLIER = 0.55;

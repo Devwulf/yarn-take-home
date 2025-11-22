@@ -18,6 +18,7 @@ type UseRotateVideosAnimProps = {
     containerRef: React.RefObject<HTMLDivElement | null>;
     defaultScrollYRef: React.RefObject<number>;
     isAnimating: React.RefObject<boolean>;
+    shouldFinishImmediately: React.RefObject<boolean>;
 }
 
 export default function useRotateVideosAnim({
@@ -25,6 +26,7 @@ export default function useRotateVideosAnim({
     containerRef,
     defaultScrollYRef,
     isAnimating,
+    shouldFinishImmediately,
 }: UseRotateVideosAnimProps) {
     const videoRects = useRef<Array<DOMRect | null>>([]);
 
@@ -123,8 +125,8 @@ export default function useRotateVideosAnim({
                 isReverse: true,
                 processTheta(progress) {
                     const ease = linear(progress);
-                    const isRotating = progress > SCROLL_DELAYED_RESET_THRESHOLD;
-                    const mappedEase = mapRangeClamped(ease, SCROLL_DELAYED_RESET_THRESHOLD, 1, 0, 1)
+                    const isRotating = shouldFinishImmediately.current || progress > SCROLL_DELAYED_RESET_THRESHOLD;
+                    const mappedEase = shouldFinishImmediately.current ? ease : mapRangeClamped(ease, SCROLL_DELAYED_RESET_THRESHOLD, 1, 0, 1)
                     return isRotating
                         ? lerp(toTheta, fromTheta, mappedEase)
                         : toTheta;
