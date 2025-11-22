@@ -1,13 +1,9 @@
 import {animate} from "popmotion";
 import type {AnimationOptions} from "./types.ts";
-import {DEFAULT_WIDTH, FULL_SCREEN_PADDING, GAP} from "./constants.ts";
+import {VIDEO_DEFAULT_WIDTH_PX, VIDEO_FULLSCREEN_PADDING_PX, VIDEO_GAP_CAROUSEL_PX} from "./constants.ts";
 
 export function lerp(a: number, b: number, t: number): number {
     return a + (b - a) * t;
-}
-
-export function reverseLerp(a: number, b: number, value: number): number {
-    return (value - a) / (b - a);
 }
 
 export function mapRangeClamped(
@@ -27,11 +23,11 @@ export function clamp(value: number, min: number, max: number): number {
 }
 
 export function getVideoWidth(isHorizontal = false) {
-    return isHorizontal ? window.innerWidth - FULL_SCREEN_PADDING * 2 : DEFAULT_WIDTH;
+    return isHorizontal ? window.innerWidth - VIDEO_FULLSCREEN_PADDING_PX * 2 : VIDEO_DEFAULT_WIDTH_PX;
 }
 
 export function getCarouselLeft(index: number) {
-    return `${-(getVideoWidth(true) + GAP) * index + FULL_SCREEN_PADDING}px`;
+    return `${-(getVideoWidth(true) + VIDEO_GAP_CAROUSEL_PX) * index + VIDEO_FULLSCREEN_PADDING_PX}px`;
 }
 
 export function animationDriver(options: AnimationOptions<number>) {

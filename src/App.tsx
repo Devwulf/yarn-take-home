@@ -2,8 +2,15 @@ import './App.css';
 import VideoItem from "./VideoItem.tsx";
 import {VIDEOS} from "./videos.ts";
 import {useRef, useState} from "react";
-import {animationDriver, clamp, getCarouselLeft, getVideoWidth, mapRangeClamped} from "./helpers.ts";
-import {ASPECT_RATIO} from "./constants.ts";
+import {animationDriver, clamp, getVideoWidth, mapRangeClamped} from "./helpers.ts";
+import {
+    SCROLL_DELAYED_RESET_THRESHOLD,
+    SCROLL_IMMEDIATE_RESET_THRESHOLD,
+    SCROLL_RESET_DELAY_MS,
+    SWIPE_UP_VELOCITY_THRESHOLD,
+    VIDEO_ASPECT_RATIO,
+    VIDEO_ROTATE_BACK_DURATION_MS
+} from "./constants.ts";
 import {useRotateVideosAnim, useScrollVideosAnim} from "./animations";
 
 // Needed to prevent gestures from triggering
@@ -18,7 +25,6 @@ window.addEventListener('wheel', event => {
 function App() {
     const videoRefs = useRef<Array<HTMLDivElement | null>>([]);
     const containerRef = useRef<HTMLDivElement | null>(null);
-    const trackerRef = useRef<HTMLDivElement | null>(null);
     const isAnimating = useRef(false);
     const timeout = useRef<number | null>(null);
     const scrollingTimeout = useRef<number | null>(null);
@@ -91,7 +97,6 @@ function App() {
 
                 const absX = Math.abs(event.deltaX);
                 const absY = Math.abs(velocityY);
-                console.log('>TOUCHING', isTouching.current, absX > absY, absX - absY, event.deltaX, event.deltaY);
                 if (absX > absY) {
                     if (!isScrolling.current) {
                         handleScrollX(event.deltaX < 0);
@@ -104,37 +109,30 @@ function App() {
                     return;
                 }
 
-                /*const trackerDiv = trackerRef.current;
-                if (trackerDiv == null) return;*/
-
-                // const trackerRect = trackerDiv.getBoundingClientRect();
                 const fromY = window.innerHeight / 2;
                 const toY = 0;
                 const newY = scrollYRef.current - velocityY;
                 const clampedY = clamp(newY, toY, fromY);
 
-                // trackerDiv.style.top = `${clampedY - trackerRect.height / 2}px`;
                 scrollYRef.current = clampedY;
                 const progress = mapRangeClamped(clampedY, fromY, toY, 0, 1);
-                console.log('>TRACKPAD', velocityY, newY, progress);
-
 
                 if (!isTouching.current) {
                     isTouching.current = true;
                     onStart();
                 }
 
-                const shouldFinish = Math.abs(velocityY) >= 30 || progress > 0.9;
+                const shouldFinish = Math.abs(velocityY) >= SWIPE_UP_VELOCITY_THRESHOLD || progress > SCROLL_IMMEDIATE_RESET_THRESHOLD;
                 if (timeout.current != null) clearTimeout(timeout.current);
                 timeout.current = setTimeout(() => {
                     isAnimating.current = true;
                     animationDriver({
                         from: progress,
-                        to: progress > 0.5 || shouldFinish ? 1 : 0,
-                        duration: 500,
+                        to: progress > SCROLL_DELAYED_RESET_THRESHOLD || shouldFinish ? 1 : 0,
+                        duration: VIDEO_ROTATE_BACK_DURATION_MS,
                         onUpdate,
                         onComplete() {
-                            if (shouldFinish || progress > 0.5) {
+                            if (shouldFinish || progress > SCROLL_DELAYED_RESET_THRESHOLD) {
                                 setClickedIndex(null);
 
                                 const containerDiv = containerRef.current;
@@ -153,29 +151,11 @@ function App() {
                             isTouching.current = false;
                         }
                     });
-                }, shouldFinish ? 0 : 1000);
+                }, shouldFinish ? 0 : SCROLL_RESET_DELAY_MS);
 
                 if (!isAnimating.current) onUpdate(progress);
-
-                /*if (event.shiftKey) {
-                    handleScrollX(deltaY < 0);
-                } else {
-                    handleClickVideo(clickedIndex);
-                }*/
             }}
         >
-            {/*<div
-                ref={trackerRef}
-                style={{
-                    position: 'fixed',
-                    top: window.innerHeight / 2 - 10,
-                    left: window.innerWidth / 2 - 10,
-                    width: 20,
-                    height: 20,
-                    backgroundColor: 'red',
-                }}
-            >
-            </div>*/}
             <div
                 ref={containerRef}
                 style={{
@@ -192,7 +172,7 @@ function App() {
                         ref={el => videoRefs.current[index] = el}
                         style={{
                             width: `${getVideoWidth(isHorizontal)}px`,
-                            height: `${getVideoWidth(isHorizontal) / ASPECT_RATIO}px`,
+                            height: `${getVideoWidth(isHorizontal) / VIDEO_ASPECT_RATIO}px`,
                             cursor: 'pointer',
                         }}
                         onClick={() => {

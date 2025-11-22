@@ -2,7 +2,15 @@ import {degreesToRadians, easeInOut, linear} from "popmotion";
 import {animationDriver, getCarouselLeft, getVideoWidth, lerp, mapRangeClamped} from "../helpers.ts";
 import {VIDEOS} from "../videos.ts";
 import {useRef} from "react";
-import {ASPECT_RATIO, DURATION, GAP} from "../constants.ts";
+import {
+    SCROLL_DELAYED_RESET_THRESHOLD,
+    VIDEO_ASPECT_RATIO,
+    VIDEO_GAP_CAROUSEL_PX,
+    VIDEO_GAP_DEFAULT_PX,
+    VIDEO_ROTATE_BACK_DURATION_MS,
+    VIDEO_ROTATE_DURATION_MS,
+    VIDEO_STAGGER_DURATION_MS
+} from "../constants.ts";
 import type {AnimationOptions} from "../types.ts";
 
 type UseRotateVideosAnimProps = {
@@ -39,7 +47,7 @@ export default function useRotateVideosAnim({
         videoDiv.style.top = '';
         videoDiv.style.left = '';
         videoDiv.style.width = `${getVideoWidth(isHorizontal)}px`;
-        videoDiv.style.height = `${getVideoWidth(isHorizontal) / ASPECT_RATIO}px}`;
+        videoDiv.style.height = `${getVideoWidth(isHorizontal) / VIDEO_ASPECT_RATIO}px}`;
     }
 
     function rotateVideoAnimationBuilder(index: number, clicked: number, isReverse = false): AnimationOptions<number> | undefined {
@@ -52,47 +60,18 @@ export default function useRotateVideosAnim({
 
         const clickedVideoRect = clickedRect ?? clickedVideoDiv.getBoundingClientRect();
         const indexOffset = index - clicked;
+        const onUpdate = getOnUpdate({
+            easingFn: easeInOut,
+            indexOffset,
+            clickedVideoRect,
+            videoDiv,
+            isReverse,
+        });
 
-        const fromTheta = 0;
-        const toTheta = degreesToRadians(90);
-        const fromWidth = getVideoWidth();
-        const toWidth = getVideoWidth(true);
-
-        const fromCenterX = clickedVideoRect.left + clickedVideoRect.width / 2;
-        const fromCenterY = clickedVideoRect.top + clickedVideoRect.height / 2;
-        const toCenterX = window.innerWidth / 2;
-        const toCenterY = window.innerHeight / 2;
+        const DURATION = isReverse ? VIDEO_ROTATE_BACK_DURATION_MS : VIDEO_ROTATE_DURATION_MS;
         return {
-            duration: DURATION + Math.abs(indexOffset) * 50,
-            onUpdate: (progress: number) => {
-                const ease = easeInOut(progress);
-                const width = isReverse
-                    ? lerp(toWidth, fromWidth, ease)
-                    : lerp(fromWidth, toWidth, ease);
-                const height = width / ASPECT_RATIO;
-
-                const centerX = isReverse
-                    ? lerp(toCenterX, fromCenterX, ease)
-                    : lerp(fromCenterX, toCenterX, ease);
-                const centerY = isReverse
-                    ? lerp(toCenterY, fromCenterY, ease)
-                    : lerp(fromCenterY, toCenterY, ease);
-
-                const theta = isReverse
-                    ? lerp(toTheta, fromTheta, ease)
-                    : lerp(fromTheta, toTheta, ease);
-
-                const ovalHalfWidth = (width + GAP) * indexOffset;
-                const ovalHalfHeight = (width / ASPECT_RATIO + GAP) * indexOffset;
-
-                const ovalX = ovalHalfWidth * Math.sin(theta);
-                const ovalY = ovalHalfHeight * Math.cos(theta);
-
-                videoDiv.style.width = `${width}px`;
-                videoDiv.style.height = `${height}px`;
-                videoDiv.style.top = `${ovalY + centerY - height / 2}px`;
-                videoDiv.style.left = `${ovalX + centerX - width / 2}px`;
-            }
+            duration: DURATION + Math.abs(indexOffset) * VIDEO_STAGGER_DURATION_MS,
+            onUpdate,
         }
     }
 
@@ -105,62 +84,34 @@ export default function useRotateVideosAnim({
 
         const fromTheta = 0;
         const toTheta = degreesToRadians(90);
-        const fromWidth = getVideoWidth();
-        const toWidth = getVideoWidth(true);
 
-        const fromCenterX = clickedVideoRect.left + clickedVideoRect.width / 2;
-        const fromCenterY = clickedVideoRect.top + clickedVideoRect.height / 2;
-        const toCenterX = window.innerWidth / 2;
-        const toCenterY = window.innerHeight / 2;
-
-        function onUpdateVideo(index: number, videoDiv: HTMLDivElement, progress: number, isReverse = true) {
-            const ease = linear(progress);
-
-            const rotateThreshold = 0.5;
-            const isRotating = progress > rotateThreshold;
-            const indexOffset = index - clicked;
-
-            const width = isReverse
-                ? lerp(toWidth, fromWidth, ease)
-                : lerp(fromWidth, toWidth, ease);
-            const height = width / ASPECT_RATIO;
-
-            const centerX = isReverse
-                ? lerp(toCenterX, fromCenterX, ease)
-                : lerp(fromCenterX, toCenterX, ease);
-            const centerY = isReverse
-                ? lerp(toCenterY, fromCenterY, ease)
-                : lerp(fromCenterY, toCenterY, ease);
-
-            const mappedEase = mapRangeClamped(ease, rotateThreshold, 1, 0, 1)
-            const theta = isRotating
-                ? (isReverse ? lerp(toTheta, fromTheta, mappedEase) : lerp(fromTheta, toTheta, mappedEase))
-                : isReverse ? toTheta : fromTheta;
-
-            const ovalHalfWidth = (width + GAP) * indexOffset;
-            const ovalHalfHeight = (width / ASPECT_RATIO + GAP) * indexOffset;
-
-            const ovalX = ovalHalfWidth * Math.sin(theta);
-            const ovalY = ovalHalfHeight * Math.cos(theta);
-
-            videoDiv.style.width = `${width}px`;
-            videoDiv.style.height = `${height}px`;
-            videoDiv.style.top = `${ovalY + centerY - height / 2}px`;
-            videoDiv.style.left = `${ovalX + centerX - width / 2}px`;
-        }
+        const onUpdateFns = videoDivs.map((videoDiv, index) => {
+            return getOnUpdate({
+                easingFn: linear,
+                indexOffset: index - clicked,
+                clickedVideoRect,
+                videoDiv,
+                isReverse: true,
+                processTheta(progress) {
+                    const ease = linear(progress);
+                    const isRotating = progress > SCROLL_DELAYED_RESET_THRESHOLD;
+                    const mappedEase = mapRangeClamped(ease, SCROLL_DELAYED_RESET_THRESHOLD, 1, 0, 1)
+                    return isRotating
+                        ? lerp(toTheta, fromTheta, mappedEase)
+                        : toTheta;
+                }
+            })
+        });
 
         return {
-            from: 0,
-            to: 1,
-            duration: 500,
             onStart: () => {
                 VIDEOS.forEach((_, i) => {
                     animateRotateVideoStart(i);
                 });
             },
             onUpdate(progress) {
-                videoDivs.forEach((videoDiv, index) => {
-                    onUpdateVideo(index, videoDiv, progress);
+                onUpdateFns.forEach((onUpdate, index) => {
+                    onUpdate(progress);
                 });
             },
         }
@@ -205,8 +156,67 @@ export default function useRotateVideosAnim({
 
     return {
         animateRotateVideoEnd,
-        rotateVideoAnimationBuilder,
         dragVideosAnimationBuilder,
         runRotateVideosAnimation
     };
+}
+
+type GetOnUpdateProps = {
+    easingFn: (t: number) => number;
+    indexOffset: number;
+    clickedVideoRect: DOMRect;
+    videoDiv: HTMLDivElement;
+
+    isReverse?: boolean;
+    processTheta?: (t: number) => number;
+};
+function getOnUpdate({
+    easingFn,
+    indexOffset,
+    clickedVideoRect,
+    videoDiv,
+    isReverse = false,
+    processTheta,
+                     }: GetOnUpdateProps) {
+    const fromTheta = 0;
+    const toTheta = degreesToRadians(90);
+    const fromWidth = getVideoWidth();
+    const toWidth = getVideoWidth(true);
+
+    const fromCenterX = clickedVideoRect.left + clickedVideoRect.width / 2;
+    const fromCenterY = clickedVideoRect.top + clickedVideoRect.height / 2;
+    const toCenterX = window.innerWidth / 2;
+    const toCenterY = window.innerHeight / 2;
+
+    const GAP = isReverse ? VIDEO_GAP_CAROUSEL_PX : VIDEO_GAP_DEFAULT_PX;
+
+    return (progress: number) => {
+        const ease = easingFn(progress);
+        const width = isReverse
+            ? lerp(toWidth, fromWidth, ease)
+            : lerp(fromWidth, toWidth, ease);
+        const height = width / VIDEO_ASPECT_RATIO;
+
+        const centerX = isReverse
+            ? lerp(toCenterX, fromCenterX, ease)
+            : lerp(fromCenterX, toCenterX, ease);
+        const centerY = isReverse
+            ? lerp(toCenterY, fromCenterY, ease)
+            : lerp(fromCenterY, toCenterY, ease);
+
+        const theta = processTheta ? processTheta(progress) : (isReverse
+            ? lerp(toTheta, fromTheta, ease)
+            : lerp(fromTheta, toTheta, ease));
+
+        const ovalHalfWidth = (width + GAP) * indexOffset;
+        const ovalHalfHeight = (width / VIDEO_ASPECT_RATIO + GAP) * indexOffset;
+
+        const ovalX = ovalHalfWidth * Math.sin(theta);
+        const ovalY = ovalHalfHeight * Math.cos(theta);
+
+        videoDiv.style.width = `${width}px`;
+        videoDiv.style.height = `${height}px`;
+        videoDiv.style.top = `${ovalY + centerY - height / 2}px`;
+        videoDiv.style.left = `${ovalX + centerX - width / 2}px`;
+    }
 }
