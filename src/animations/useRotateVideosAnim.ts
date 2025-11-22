@@ -16,12 +16,14 @@ import type {AnimationOptions} from "../types.ts";
 type UseRotateVideosAnimProps = {
     videoRefs: React.RefObject<Array<HTMLDivElement | null>>;
     containerRef: React.RefObject<HTMLDivElement | null>;
+    defaultScrollYRef: React.RefObject<number>;
     isAnimating: React.RefObject<boolean>;
 }
 
 export default function useRotateVideosAnim({
     videoRefs,
     containerRef,
+    defaultScrollYRef,
     isAnimating,
 }: UseRotateVideosAnimProps) {
     const videoRects = useRef<Array<DOMRect | null>>([]);
@@ -39,6 +41,12 @@ export default function useRotateVideosAnim({
         videoDiv.style.height = `${rect.height}px`;
     }
 
+    function animateRotateVideosStart() {
+        VIDEOS.forEach((_, i) => {
+            animateRotateVideoStart(i);
+        });
+    }
+
     function animateRotateVideoEnd(index: number, isHorizontal = false) {
         const videoDiv = videoRefs.current.at(index);
         if (videoDiv == null) return;
@@ -48,6 +56,27 @@ export default function useRotateVideosAnim({
         videoDiv.style.left = '';
         videoDiv.style.width = `${getVideoWidth(isHorizontal)}px`;
         videoDiv.style.height = `${getVideoWidth(isHorizontal) / VIDEO_ASPECT_RATIO}px}`;
+    }
+
+    function animateRotateVideosEnd(index: number, isHorizontal = false) {
+        const containerDiv = containerRef.current;
+        if (containerDiv == null) return;
+
+        containerDiv.style.display = 'flex';
+        containerDiv.style.flexDirection = isHorizontal ? 'row' : 'column';
+        containerDiv.style.left = isHorizontal ? getCarouselLeft(index) : '';
+
+        VIDEOS.forEach((_, i) => {
+            animateRotateVideoEnd(i, isHorizontal);
+        });
+
+        if (!isHorizontal) {
+            const parent = containerDiv.parentElement;
+            if (parent) {
+                parent.style.overflowY = 'auto';
+                parent.scrollTo({ top: defaultScrollYRef.current, behavior: 'instant' });
+            }
+        }
     }
 
     function rotateVideoAnimationBuilder(index: number, clicked: number, isReverse = false): AnimationOptions<number> | undefined {
@@ -105,9 +134,7 @@ export default function useRotateVideosAnim({
 
         return {
             onStart: () => {
-                VIDEOS.forEach((_, i) => {
-                    animateRotateVideoStart(i);
-                });
+                animateRotateVideosStart();
             },
             onUpdate(progress) {
                 onUpdateFns.forEach((onUpdate, index) => {
@@ -135,29 +162,20 @@ export default function useRotateVideosAnim({
         const containerDiv = containerRef.current;
         if (containerDiv == null) return;
 
-        VIDEOS.forEach((_, i) => {
-            animateRotateVideoStart(i);
-        });
-
+        animateRotateVideosStart();
         containerDiv.style.display = 'block';
 
         const rotateActions = VIDEOS.map((_, i) => animateRotateVideo(i, index, newClickedIndex == null))
         await Promise.allSettled(rotateActions);
 
-        containerDiv.style.display = 'flex';
-        containerDiv.style.flexDirection = isHorizontal ? 'row' : 'column';
-        containerDiv.style.left = isHorizontal ? getCarouselLeft(index) : '';
-
-        VIDEOS.forEach((_, i) => {
-            animateRotateVideoEnd(i, isHorizontal);
-        });
+        animateRotateVideosEnd(index, isHorizontal);
         isAnimating.current = false;
     }
 
     return {
-        animateRotateVideoEnd,
+        animateRotateVideosEnd,
         dragVideosAnimationBuilder,
-        runRotateVideosAnimation
+        runRotateVideosAnimation,
     };
 }
 

@@ -25,23 +25,28 @@ window.addEventListener('wheel', event => {
 function App() {
     const videoRefs = useRef<Array<HTMLDivElement | null>>([]);
     const containerRef = useRef<HTMLDivElement | null>(null);
-    const isAnimating = useRef(false);
+
     const timeout = useRef<number | null>(null);
     const scrollingTimeout = useRef<number | null>(null);
+
+    const isAnimating = useRef(false);
     const isTouching = useRef(false);
     const isScrolling = useRef(false);
-    const scrollYRef = useRef(window.innerHeight / 2);
+
+    const defaultScrollYRef = useRef(0);
+    const carouselScrollYRef = useRef(window.innerHeight / 2);
 
     const [clickedIndex, setClickedIndex] = useState<number | null>(null);
     const isHorizontal = clickedIndex != null;
 
     const {
-        animateRotateVideoEnd,
+        animateRotateVideosEnd,
         dragVideosAnimationBuilder,
         runRotateVideosAnimation
     } = useRotateVideosAnim({
         videoRefs,
         containerRef,
+        defaultScrollYRef,
         isAnimating,
     });
     const {
@@ -66,12 +71,78 @@ function App() {
         const isHorizontal = newClickedIndex != null;
         setClickedIndex(newClickedIndex);
 
+        const parent = containerRef.current?.parentElement;
+        if (parent) {
+            defaultScrollYRef.current = parent.scrollTop;
+        }
+
         await runRotateVideosAnimation(index, newClickedIndex, isHorizontal);
     }
 
     function handleScrollX(isScrollLeft = false) {
         if (isAnimating.current) return;
         runScrollVideosAnimation(isScrollLeft);
+    }
+
+    function handleWheel(event: React.WheelEvent) {
+        if (!isHorizontal || clickedIndex == null || onStart == null || onUpdate == null) return;
+
+        const velocityY = event.deltaY;
+        if (event.shiftKey) {
+            handleScrollX(velocityY < 0);
+            return;
+        }
+
+        const absX = Math.abs(event.deltaX);
+        const absY = Math.abs(velocityY);
+        // Needed so the inertia when scrolling sideways on carousel doesn't trigger multiple scrolls
+        if (absX > absY) {
+            if (!isScrolling.current) {
+                handleScrollX(event.deltaX < 0);
+                isScrolling.current = true;
+            }
+            if (scrollingTimeout.current != null) clearTimeout(scrollingTimeout.current);
+            scrollingTimeout.current = setTimeout(() => {
+                isScrolling.current = false;
+            }, 100);
+            return;
+        }
+
+        const fromY = window.innerHeight / 2;
+        const toY = 0;
+        const newY = carouselScrollYRef.current - velocityY;
+        const clampedY = clamp(newY, toY, fromY);
+
+        carouselScrollYRef.current = clampedY;
+        const progress = mapRangeClamped(clampedY, fromY, toY, 0, 1);
+
+        if (!isTouching.current) {
+            isTouching.current = true;
+            onStart();
+        }
+
+        const shouldFinish = Math.abs(velocityY) >= SWIPE_UP_VELOCITY_THRESHOLD || progress > SCROLL_IMMEDIATE_RESET_THRESHOLD;
+        if (timeout.current != null) clearTimeout(timeout.current);
+        timeout.current = setTimeout(() => {
+            isAnimating.current = true;
+            animationDriver({
+                from: progress,
+                to: progress > SCROLL_DELAYED_RESET_THRESHOLD || shouldFinish ? 1 : 0,
+                duration: VIDEO_ROTATE_BACK_DURATION_MS,
+                onUpdate,
+                onComplete() {
+                    if (shouldFinish || progress > SCROLL_DELAYED_RESET_THRESHOLD) {
+                        setClickedIndex(null);
+                        animateRotateVideosEnd(0, false);
+                    }
+                    isAnimating.current = false;
+                    carouselScrollYRef.current = window.innerHeight / 2;
+                    isTouching.current = false;
+                }
+            });
+        }, shouldFinish ? 0 : SCROLL_RESET_DELAY_MS);
+
+        if (!isAnimating.current) onUpdate(progress);
     }
 
     return (
@@ -82,79 +153,11 @@ function App() {
                 height: '100vh',
                 display: 'flex',
                 justifyContent: 'center',
-                alignItems: 'center',
+                alignItems: isHorizontal ? 'center' : 'start',
                 overflowY: isHorizontal ? 'hidden' : 'auto',
                 overflowX: 'hidden',
             }}
-            onWheel={(event) => {
-                if (!isHorizontal || clickedIndex == null || onStart == null || onUpdate == null) return;
-
-                const velocityY = event.deltaY;
-                if (event.shiftKey) {
-                    handleScrollX(velocityY < 0);
-                    return;
-                }
-
-                const absX = Math.abs(event.deltaX);
-                const absY = Math.abs(velocityY);
-                if (absX > absY) {
-                    if (!isScrolling.current) {
-                        handleScrollX(event.deltaX < 0);
-                        isScrolling.current = true;
-                    }
-                    if (scrollingTimeout.current != null) clearTimeout(scrollingTimeout.current);
-                    scrollingTimeout.current = setTimeout(() => {
-                        isScrolling.current = false;
-                    }, 100);
-                    return;
-                }
-
-                const fromY = window.innerHeight / 2;
-                const toY = 0;
-                const newY = scrollYRef.current - velocityY;
-                const clampedY = clamp(newY, toY, fromY);
-
-                scrollYRef.current = clampedY;
-                const progress = mapRangeClamped(clampedY, fromY, toY, 0, 1);
-
-                if (!isTouching.current) {
-                    isTouching.current = true;
-                    onStart();
-                }
-
-                const shouldFinish = Math.abs(velocityY) >= SWIPE_UP_VELOCITY_THRESHOLD || progress > SCROLL_IMMEDIATE_RESET_THRESHOLD;
-                if (timeout.current != null) clearTimeout(timeout.current);
-                timeout.current = setTimeout(() => {
-                    isAnimating.current = true;
-                    animationDriver({
-                        from: progress,
-                        to: progress > SCROLL_DELAYED_RESET_THRESHOLD || shouldFinish ? 1 : 0,
-                        duration: VIDEO_ROTATE_BACK_DURATION_MS,
-                        onUpdate,
-                        onComplete() {
-                            if (shouldFinish || progress > SCROLL_DELAYED_RESET_THRESHOLD) {
-                                setClickedIndex(null);
-
-                                const containerDiv = containerRef.current;
-                                if (containerDiv == null) return;
-
-                                containerDiv.style.display = 'flex';
-                                containerDiv.style.flexDirection = 'column';
-                                containerDiv.style.left = '';
-
-                                VIDEOS.forEach((_, i) => {
-                                    animateRotateVideoEnd(i, false);
-                                });
-                            }
-                            isAnimating.current = false;
-                            scrollYRef.current = window.innerHeight / 2;
-                            isTouching.current = false;
-                        }
-                    });
-                }, shouldFinish ? 0 : SCROLL_RESET_DELAY_MS);
-
-                if (!isAnimating.current) onUpdate(progress);
-            }}
+            onWheel={handleWheel}
         >
             <div
                 ref={containerRef}
