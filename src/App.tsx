@@ -2,13 +2,13 @@ import './App.css';
 import VideoItem from "./VideoItem.tsx";
 import {VIDEOS} from "./videos.ts";
 import {useRef, useState} from "react";
-import {animationDriver, clamp, getVideoWidth, mapRangeClamped} from "./helpers.ts";
+import {animationDriver, clamp, getVideoHeight, getVideoWidth, mapRangeClamped} from "./helpers.ts";
 import {
     SCROLL_DELAYED_RESET_THRESHOLD, SCROLL_DELTA_MULTIPLIER,
     SCROLL_IMMEDIATE_RESET_THRESHOLD,
     SCROLL_RESET_DELAY_MS,
     SWIPE_UP_VELOCITY_THRESHOLD,
-    VIDEO_ASPECT_RATIO,
+    VIDEO_ASPECT_RATIO, VIDEO_GAP_DEFAULT_PX,
     VIDEO_ROTATE_BACK_DURATION_MS
 } from "./constants.ts";
 import {useRotateVideosAnim, useScrollVideosAnim} from "./animations";
@@ -170,7 +170,7 @@ function App() {
                     flexDirection: 'column',
                     width: 'fit-content',
                     height: 'fit-content',
-                    gap: '1rem',
+                    gap: `${VIDEO_GAP_DEFAULT_PX}px`,
                 }}
             >
                 {VIDEOS.map((src, index) => (
@@ -178,7 +178,7 @@ function App() {
                         ref={el => videoRefs.current[index] = el}
                         style={{
                             width: `${getVideoWidth(isHorizontal)}px`,
-                            height: `${getVideoWidth(isHorizontal) / VIDEO_ASPECT_RATIO}px`,
+                            height: `${getVideoHeight(isHorizontal)}px`,
                             cursor: 'pointer',
                         }}
                         onClick={() => {

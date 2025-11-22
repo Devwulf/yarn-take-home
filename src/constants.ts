@@ -1,5 +1,6 @@
 // Space (in px) around each video when it’s displayed near full screen.
-// Gives the illusion of a full‑screen video while preserving subtle margins on all sides.
+// Gives the illusion of a full‑screen video while preserving subtle margins on
+// either horizontal or vertical axis, depending on if the window is more landscape or portrait.
 export const VIDEO_FULLSCREEN_PADDING_PX = 32; // 2rem
 
 // Intrinsic width‑to‑height ratio maintained for all video frames.
@@ -12,7 +13,7 @@ export const VIDEO_DEFAULT_WIDTH_PX = 320;
 export const VIDEO_GAP_DEFAULT_PX = 16; // 1rem
 
 // Gap (in px) between adjacent videos in carousel layout.
-export const VIDEO_GAP_CAROUSEL_PX = 16; // 1rem
+export const VIDEO_GAP_CAROUSEL_PX = 24; // 1.5rem
 
 // Base duration (in ms) of the rotation animation when transitioning from default to carousel layout.
 export const VIDEO_ROTATE_DURATION_MS = 500;
@@ -21,6 +22,9 @@ export const VIDEO_ROTATE_DURATION_MS = 500;
 // from the carousel (current) state back to the default layout.
 // Slightly slower than the forward transition for a smoother settle.
 export const VIDEO_ROTATE_BACK_DURATION_MS = 750;
+
+// Duration (in ms) of the scroll animation when navigating between videos in carousel layout.
+export const VIDEO_SCROLL_DURATION_MS = 500;
 
 // If scroll position ratio exceeds this value (0–1), return immediately to the default state.
 export const SCROLL_IMMEDIATE_RESET_THRESHOLD = 0.9;
@@ -38,7 +42,7 @@ export const VIDEO_STAGGER_DURATION_MS = 50;
 
 // Velocity threshold (in px/ms or the same units as your gesture’s delta/time calculation)
 // beyond which an upward swipe triggers an immediate reset to the default state.
-export const SWIPE_UP_VELOCITY_THRESHOLD = 50;
+export const SWIPE_UP_VELOCITY_THRESHOLD = 30;
 
 // Multiplier applied to event.deltaY to fine‑tune perceived scroll speed.
-export const SCROLL_DELTA_MULTIPLIER = 0.55;
+export const SCROLL_DELTA_MULTIPLIER = 0.5;

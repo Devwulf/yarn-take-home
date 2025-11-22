@@ -1,5 +1,6 @@
 import {VIDEOS} from "../videos.ts";
 import {animationDriver, getCarouselLeft} from "../helpers.ts";
+import {VIDEO_SCROLL_DURATION_MS} from "../constants.ts";
 
 type UseScrollVideosAnimProps = {
     containerRef: React.RefObject<HTMLDivElement | null>;
@@ -27,7 +28,7 @@ export default function useScrollVideosAnim({
         return {
             from: fromLeft,
             to: toLeft,
-            duration: 500,
+            duration: VIDEO_SCROLL_DURATION_MS,
             onUpdate(value) {
                 containerDiv.style.left = value;
             },
@@ -45,7 +46,6 @@ export default function useScrollVideosAnim({
     }
 
     return {
-        scrollVideosAnimationBuilder,
         runScrollVideosAnimation,
     }
 }

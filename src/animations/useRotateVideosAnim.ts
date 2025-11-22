@@ -1,5 +1,5 @@
 import {degreesToRadians, easeInOut, linear} from "popmotion";
-import {animationDriver, getCarouselLeft, getVideoWidth, lerp, mapRangeClamped} from "../helpers.ts";
+import {animationDriver, getCarouselLeft, getVideoHeight, getVideoWidth, lerp, mapRangeClamped} from "../helpers.ts";
 import {VIDEOS} from "../videos.ts";
 import {useRef} from "react";
 import {
@@ -57,7 +57,7 @@ export default function useRotateVideosAnim({
         videoDiv.style.top = '';
         videoDiv.style.left = '';
         videoDiv.style.width = `${getVideoWidth(isHorizontal)}px`;
-        videoDiv.style.height = `${getVideoWidth(isHorizontal) / VIDEO_ASPECT_RATIO}px}`;
+        videoDiv.style.height = `${getVideoHeight(isHorizontal)}px}`;
     }
 
     function animateRotateVideosEnd(index: number, isHorizontal = false) {
@@ -67,6 +67,7 @@ export default function useRotateVideosAnim({
         containerDiv.style.display = 'flex';
         containerDiv.style.flexDirection = isHorizontal ? 'row' : 'column';
         containerDiv.style.left = isHorizontal ? getCarouselLeft(index) : '';
+        containerDiv.style.gap = isHorizontal ? `${VIDEO_GAP_CAROUSEL_PX}px` : `${VIDEO_GAP_DEFAULT_PX}px`;
 
         VIDEOS.forEach((_, i) => {
             animateRotateVideoEnd(i, isHorizontal);
@@ -208,8 +209,6 @@ function getOnUpdate({
     const toCenterX = window.innerWidth / 2;
     const toCenterY = window.innerHeight / 2;
 
-    const GAP = isReverse ? VIDEO_GAP_CAROUSEL_PX : VIDEO_GAP_DEFAULT_PX;
-
     return (progress: number) => {
         const ease = easingFn(progress);
         const width = isReverse
@@ -228,8 +227,8 @@ function getOnUpdate({
             ? lerp(toTheta, fromTheta, ease)
             : lerp(fromTheta, toTheta, ease));
 
-        const ovalHalfWidth = (width + GAP) * indexOffset;
-        const ovalHalfHeight = (width / VIDEO_ASPECT_RATIO + GAP) * indexOffset;
+        const ovalHalfWidth = (width + VIDEO_GAP_CAROUSEL_PX) * indexOffset;
+        const ovalHalfHeight = (width / VIDEO_ASPECT_RATIO + VIDEO_GAP_DEFAULT_PX) * indexOffset;
 
         const ovalX = ovalHalfWidth * Math.sin(theta);
         const ovalY = ovalHalfHeight * Math.cos(theta);
