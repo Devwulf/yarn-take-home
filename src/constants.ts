@@ -1,6 +1,6 @@
 // Space (in px) around each video when it’s displayed near full screen.
 // Gives the illusion of a full‑screen video while preserving subtle margins on
-// either horizontal or vertical axis, depending on if the window is more landscape or portrait.
+// either horizontal or vertical axis, depending on if the window is more landscape-y.
 export const VIDEO_FULLSCREEN_PADDING_PX = 32; // 2rem
 
 // Intrinsic width‑to‑height ratio maintained for all video frames.
